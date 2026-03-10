@@ -1,0 +1,23 @@
+# Узлы (Dependencies)
+node_modules/
+
+# Файлы окружения (Environment)
+.env
+.env.*
+
+# Временные папки (для этого проекта)
+tmp/
+tmp_bin/
+
+# Логи
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# WebStorm / IntelliJ IDEA и другие IDE
+.idea/
+.vscode/
+
+# Mac OS
+.DS_Store
