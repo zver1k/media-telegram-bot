@@ -1,4 +1,4 @@
-# 🚀 DamirMedia Video Downloader Bot
+# 🚀 DamirMedia Video Downloader Bot (v1.1.0)
 
 Многофункциональный Telegram-бот для скачивания видео и аудио из популярных социальных сетей и видеохостингов.
 
@@ -104,6 +104,11 @@ TG_API_BASE_URL=http://127.0.0.1:8081
 
 *Если бот до этого уже работал через стандартный `api.telegram.org`, сначала выполните запрос выхода (Log Out), открыв в браузере ссылку:*
 `https://api.telegram.org/bot<ВАШ_ТОКЕН>/logOut`
+
+## 📝 История версий
+
+- **v1.1.0** — исправление утечек памяти в `Map` (`cooldown`, `activeDownloads`), переход на асинхронную (`fs/promises`) очистку временной папки `tmp`, добавление `README` и `.gitignore`.
+- **v1.0.0** — начальная версия: поддержка YouTube/TikTok/Instagram, выбор качества кнопками, интеграция `youtube-dl-exec` и локального API сервера.
 
 ## 📄 Лицензия
 
