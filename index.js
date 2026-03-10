@@ -1,6 +1,7 @@
 const { Telegraf, Markup, session } = require('telegraf')
 const youtubedl = require('youtube-dl-exec')
 const fs = require('fs')
+const fsPromises = require('fs/promises')
 const path = require('path')
 const crypto = require('crypto')
 require('dotenv').config()
@@ -19,42 +20,50 @@ if (!fs.existsSync(tmpDir)) {
     fs.mkdirSync(tmpDir)
 }
 
-const activeDownloads = new Set()
+const activeDownloads = new Map()
 const cooldown = new Map()
 
-// очистка временных файлов
-setInterval(() => {
+// очистка временных файлов и кэша в памяти
+setInterval(async () => {
 
-    fs.readdir(tmpDir, (err, files) => {
+    // 1. Очистка старых файлов в папке tmp
+    try {
+        const files = await fsPromises.readdir(tmpDir)
 
-        if (err) return
-
-        files.forEach(file => {
-
+        for (const file of files) {
             const filePath = path.join(tmpDir, file)
+            const stat = await fsPromises.stat(filePath)
 
-            fs.stat(filePath, (err, stat) => {
+            const age = Date.now() - stat.mtimeMs
+            if (age > 3600000) { // 1 час
+                await fsPromises.unlink(filePath).catch(() => { })
+            }
+        }
+    } catch (err) {
+        console.error("Ошибка при очистке tmp:", err.message)
+    }
 
-                if (err) return
+    // 2. Очистка cooldown для защиты от утечки памяти
+    const now = Date.now()
+    for (const [userId, lastTime] of cooldown.entries()) {
+        if (now - lastTime > 60000) { // удаляем тех, кто писал больше минуты назад
+            cooldown.delete(userId)
+        }
+    }
 
-                const age = Date.now() - stat.mtimeMs
-
-                if (age > 3600000) {
-                    fs.unlink(filePath, () => {})
-                }
-
-            })
-
-        })
-
-    })
+    // 3. Очистка зависших загрузок (если youtube-dl завис навсегда)
+    for (const [userId, startTime] of activeDownloads.entries()) {
+        if (now - startTime > 10800000) { // 3 часа (скачивание длится слишком долго - удаляем блокировку)
+            activeDownloads.delete(userId)
+        }
+    }
 
 }, 1800000)
 
 bot.start(ctx => {
 
     ctx.reply(
-      `🚀 DamirMedia Video Downloader
+        `🚀 DamirMedia Video Downloader
 
 Поддерживаемые сервисы:
 
@@ -146,7 +155,7 @@ bot.on('text', async ctx => {
             thumb = null
 
         const message =
-`🎬 ${title}
+            `🎬 ${title}
 
 ⏱ Длительность: ${duration}
 👁 Просмотры: ${views}
@@ -157,7 +166,7 @@ bot.on('text', async ctx => {
 
             try {
                 // удалить сообщение ожидания
-                try { await ctx.deleteMessage(loadingMsg.message_id) } catch {}
+                try { await ctx.deleteMessage(loadingMsg.message_id) } catch { }
                 await ctx.replyWithPhoto(
                     { url: thumb },
                     {
@@ -169,22 +178,22 @@ bot.on('text', async ctx => {
             } catch (err) {
 
                 console.log("Thumbnail error:", err.message)
-                try { await ctx.deleteMessage(loadingMsg.message_id) } catch {}
+                try { await ctx.deleteMessage(loadingMsg.message_id) } catch { }
                 await ctx.reply(message, keyboard)
 
             }
 
         } else {
-            try { await ctx.deleteMessage(loadingMsg.message_id) } catch {}
+            try { await ctx.deleteMessage(loadingMsg.message_id) } catch { }
             await ctx.reply(message, keyboard)
 
         }
 
     } else {
-        try { await ctx.deleteMessage(loadingMsg.message_id) } catch {}
+        try { await ctx.deleteMessage(loadingMsg.message_id) } catch { }
         await ctx.reply(
-          "📥 Видео найдено\n\nВыберите формат:",
-          keyboard
+            "📥 Видео найдено\n\nВыберите формат:",
+            keyboard
         )
 
     }
@@ -203,7 +212,7 @@ bot.action(/video_(.+)|mp3/, async ctx => {
     if (activeDownloads.has(userId))
         return ctx.answerCbQuery('⏳ Загрузка уже выполняется')
 
-    activeDownloads.add(userId)
+    activeDownloads.set(userId, Date.now())
 
     await ctx.answerCbQuery()
 
@@ -268,13 +277,13 @@ bot.action(/video_(.+)|mp3/, async ctx => {
                     try {
 
                         await ctx.telegram.editMessageText(
-                          ctx.chat.id,
-                          loading.message_id,
-                          undefined,
-                          `⬇️ ${p.toFixed(1)}%`
+                            ctx.chat.id,
+                            loading.message_id,
+                            undefined,
+                            `⬇️ ${p.toFixed(1)}%`
                         )
 
-                    } catch {}
+                    } catch { }
 
                 }
 
@@ -285,15 +294,15 @@ bot.action(/video_(.+)|mp3/, async ctx => {
         await subprocess
 
         await ctx.telegram.editMessageText(
-          ctx.chat.id,
-          loading.message_id,
-          undefined,
-          '📤 Отправляю файл...'
+            ctx.chat.id,
+            loading.message_id,
+            undefined,
+            '📤 Отправляю файл...'
         )
 
         const isLocalApi =
-          process.env.TG_API_BASE_URL &&
-          process.env.TG_API_BASE_URL.includes('127.0.0.1')
+            process.env.TG_API_BASE_URL &&
+            process.env.TG_API_BASE_URL.includes('127.0.0.1')
 
         if (type === 'mp3') {
 
@@ -312,10 +321,10 @@ bot.action(/video_(.+)|mp3/, async ctx => {
         fs.unlinkSync(output)
 
         await ctx.telegram.editMessageText(
-          ctx.chat.id,
-          loading.message_id,
-          undefined,
-          '✅ Готово'
+            ctx.chat.id,
+            loading.message_id,
+            undefined,
+            '✅ Готово'
         )
 
     } catch (err) {
