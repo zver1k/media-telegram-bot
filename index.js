@@ -4,7 +4,21 @@ const fs = require('fs')
 const fsPromises = require('fs/promises')
 const path = require('path')
 const crypto = require('crypto')
+const { execSync } = require('child_process')
 require('dotenv').config()
+
+function getVideoDimensions(filePath) {
+    try {
+        const result = execSync(
+            `ffprobe -v quiet -print_format json -show_streams "${filePath}"`,
+            { timeout: 5000 }
+        )
+        const data = JSON.parse(result.toString())
+        const videoStream = data.streams.find(s => s.codec_type === 'video')
+        if (videoStream) return { width: videoStream.width, height: videoStream.height }
+    } catch { }
+    return null
+}
 
 const bot = new Telegraf(process.env.BOT_TOKEN, {
     telegram: {
@@ -100,8 +114,6 @@ bot.on('text', async ctx => {
 
     if (!ctx.session) ctx.session = {}
     ctx.session.url = url
-    ctx.session.width = null
-    ctx.session.height = null
     // сообщение ожидания
     const loadingMsg = await ctx.reply('🔎 Получаю информацию о видео...')
 
@@ -137,9 +149,6 @@ bot.on('text', async ctx => {
     ])
 
     if (info && info.thumbnail) {
-
-        ctx.session.width = info.width || null
-        ctx.session.height = info.height || null
 
         const title = info.title || 'Видео'
 
@@ -314,8 +323,12 @@ bot.action(/video_(.+)|mp3/, async ctx => {
         } else {
 
             const videoExtra = {}
-            if (ctx.session?.width) videoExtra.width = ctx.session.width
-            if (ctx.session?.height) videoExtra.height = ctx.session.height
+
+            const dims = getVideoDimensions(output)
+            if (dims) {
+                videoExtra.width = dims.width
+                videoExtra.height = dims.height
+            }
 
             await ctx.replyWithVideo({ source: output }, videoExtra)
 
