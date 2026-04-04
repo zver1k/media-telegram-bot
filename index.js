@@ -100,6 +100,8 @@ bot.on('text', async ctx => {
 
     if (!ctx.session) ctx.session = {}
     ctx.session.url = url
+    ctx.session.width = null
+    ctx.session.height = null
     // сообщение ожидания
     const loadingMsg = await ctx.reply('🔎 Получаю информацию о видео...')
 
@@ -135,6 +137,9 @@ bot.on('text', async ctx => {
     ])
 
     if (info && info.thumbnail) {
+
+        ctx.session.width = info.width || null
+        ctx.session.height = info.height || null
 
         const title = info.title || 'Видео'
 
@@ -312,9 +317,11 @@ bot.action(/video_(.+)|mp3/, async ctx => {
 
         } else {
 
-            await ctx.replyWithVideo({
-                source: output
-            })
+            const videoExtra = {}
+            if (ctx.session?.width) videoExtra.width = ctx.session.width
+            if (ctx.session?.height) videoExtra.height = ctx.session.height
+
+            await ctx.replyWithVideo({ source: output }, videoExtra)
 
         }
 
