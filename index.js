@@ -269,7 +269,7 @@ bot.action(/video_(.+)|mp3/, async ctx => {
 
         subprocess.stdout.on('data', async data => {
 
-            const match = data.toString().match(/\[download\]\s+([\d\.]+)%/)
+            const match = data.toString().match(/\[download]\s+([\d.]+)%/)
 
             if (match) {
 
@@ -304,10 +304,6 @@ bot.action(/video_(.+)|mp3/, async ctx => {
             undefined,
             '📤 Отправляю файл...'
         )
-
-        const isLocalApi =
-            process.env.TG_API_BASE_URL &&
-            process.env.TG_API_BASE_URL.includes('127.0.0.1')
 
         if (type === 'mp3') {
 
