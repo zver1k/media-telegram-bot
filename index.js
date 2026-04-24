@@ -89,6 +89,7 @@ bot.start(ctx => {
 🟠 OK.ru
 🐦 Twitter / X
 📌 Pinterest
+🟢 Pikabu
 
 📎 Просто отправьте ссылку.
 
@@ -115,7 +116,14 @@ bot.on('text', async ctx => {
     if (!ctx.session) ctx.session = {}
     ctx.session.url = url
     // сообщение ожидания
-    const loadingMsg = await ctx.reply('🔎 Получаю информацию о видео...')
+    let serviceEmoji = '🔎'
+    if (url.includes('pikabu.ru')) serviceEmoji = '🟢'
+    if (url.includes('youtube.com') || url.includes('youtu.be')) serviceEmoji = '▶️'
+    if (url.includes('tiktok.com')) serviceEmoji = '🎵'
+    if (url.includes('instagram.com')) serviceEmoji = '📸'
+    if (url.includes('vk.com')) serviceEmoji = '📺'
+    
+    const loadingMsg = await ctx.reply(`${serviceEmoji} Получаю информацию...`)
 
     let info = null
 
